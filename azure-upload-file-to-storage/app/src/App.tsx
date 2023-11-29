@@ -1,8 +1,9 @@
 import { BlockBlobClient } from '@azure/storage-blob';
-import { Box, Button, Card, CardMedia, Grid, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import { ChangeEvent, useState } from 'react';
 import ErrorBoundary from './components/error-boundary';
 import { convertFileToArrayBuffer } from './lib/convert-file-to-arraybuffer';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 import axios, { AxiosResponse } from 'axios';
 import './App.css';
@@ -30,6 +31,7 @@ function App() {
   const [sasTokenUrl, setSasTokenUrl] = useState<string>('');
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [list, setList] = useState<string[]>([]);
+  const [copied, setCopied] = useState<boolean>(false);
 
   const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
     const { target } = event;
@@ -43,22 +45,23 @@ function App() {
       return;
 
     setSelectedFile(target?.files[0]);
+    handleFileSasToken(target?.files[0]);
 
     // reset
     setSasTokenUrl('');
     setUploadStatus('');
   };
 
-  const handleFileSasToken = () => {
+  const handleFileSasToken = (file: File) => {
     const permission = 'w'; //write
     const timerange = 5; //minutes
 
-    if (!selectedFile) return;
+    if (!file) return;
 
     request
       .post(
         `/api/sas?file=${encodeURIComponent(
-          selectedFile.name
+          file.name
         )}&permission=${permission}&container=${containerName}&timerange=${timerange}`,
         {
           headers: {
@@ -117,7 +120,19 @@ function App() {
         }
       });
   };
-
+  const item =
+    selectedFile && list.find((item) => item.includes(selectedFile?.name));
+  const frame =
+    (item &&
+      `
+    <iframe
+      width="640"
+      height="480"
+      style={{ border: "1px solid #eeeeee" }}
+      src="https://app.clooned.com/website/embed.html#model=${item}"
+    />
+  `) ||
+    '';
   return (
     <>
       <ErrorBoundary>
@@ -152,26 +167,6 @@ function App() {
             )}
           </Box>
 
-          {/* SAS Token Section */}
-          {selectedFile && selectedFile.name && (
-            <Box
-              display="block"
-              justifyContent="left"
-              alignItems="left"
-              flexDirection="column"
-              my={4}
-            >
-              <Button variant="contained" onClick={handleFileSasToken}>
-                Get SAS Token
-              </Button>
-              {sasTokenUrl && (
-                <Box my={2}>
-                  <Typography variant="body2">{sasTokenUrl}</Typography>
-                </Box>
-              )}
-            </Box>
-          )}
-
           {/* File Upload Section */}
           {sasTokenUrl && (
             <Box
@@ -195,24 +190,30 @@ function App() {
           )}
 
           {/* Uploaded Files Display */}
-          <Grid container spacing={2}>
-            {list.map((item) => (
-              <Grid item xs={6} sm={4} md={3} key={item}>
-                <Card>
-                  {item.endsWith('.jpg') ||
-                  item.endsWith('.png') ||
-                  item.endsWith('.jpeg') ||
-                  item.endsWith('.gif') ? (
-                    <CardMedia component="img" image={item} alt={item} />
-                  ) : (
-                    <Typography variant="body1" gutterBottom>
-                      {item}
-                    </Typography>
-                  )}
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          {item ? (
+            <Stack flexDirection="row" gap="20px">
+              <iframe
+                width="640"
+                height="480"
+                style={{ border: '1px solid #eeeeee' }}
+                src={`https://app.clooned.com/website/embed.html#model=${item}`}
+              />
+              <Box>
+                <Typography variant="h4" mb={2}>
+                  This your frame
+                </Typography>
+                <Typography mb={3}>{frame}</Typography>
+                <CopyToClipboard text={frame} onCopy={() => setCopied(true)}>
+                  <Button variant="contained">Copy to clipboard</Button>
+                </CopyToClipboard>
+                {copied ? (
+                  <Typography color="orange" mt={2}>
+                    Copied!
+                  </Typography>
+                ) : null}
+              </Box>
+            </Stack>
+          ) : null}
         </Box>
       </ErrorBoundary>
     </>
